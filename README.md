@@ -57,33 +57,51 @@ cmake --build build
 
 ## 3. Input / Đầu vào
 
-TODO_STUDENT: Mô tả rõ đầu vào của chương trình sau khi em hoàn thiện bài lab.
+Chương trình hỗ trợ **3 cách nhập liệu**:
 
-Gợi ý nên nêu:
-- plaintext đang được nhập như thế nào
-- key đang được nhập như thế nào
-- chương trình nhận 1 block hay nhiều block
-- định dạng dữ liệu là chuỗi bit, chuỗi ký tự hay file
+### Cách 1: Command line arguments
+```bash
+./des encrypt "HelloWorld" "12345678"
+./des decrypt "85E813540F0AB405" "12345678"
+```
+
+### Cách 2: Interactive mode (không truyền tham số)
+```bash
+./des
+# Nhập mode: encrypt hoặc decrypt
+# Nhập plaintext/ciphertext
+# Nhập key (8 ký tự)
+```
+
+### Cách 3: Từ stdin (cho CI)
+- Dòng 1: Chọn mode (1=DES encrypt, 2=DES decrypt, 3=TripleDES encrypt, 4=TripleDES decrypt)
+- Dòng 2: Plaintext (cho encrypt) hoặc Ciphertext hex (cho decrypt)
+- Dòng 3: Key (8 ký tự)
+
+**Định dạng dữ liệu:**
+- **Plaintext**: Chuỗi ký tự ASCII (ví dụ: "HelloWorld")
+- **Key**: 8 ký tự ASCII (ví dụ: "12345678")
+- **Ciphertext**: Chuỗi hex 16 ký tự cho mỗi block (64 bits)
+- **Hỗ trợ multi-block**: Plaintext dài hơn 8 bytes sẽ được tự động chia thành nhiều block 64-bit
 
 ## 4. Output / Đầu ra
 
-TODO_STUDENT: Mô tả rõ đầu ra của chương trình.
-
-Gợi ý nên nêu:
-- ciphertext hiển thị ra sao
-- có in round keys hay không
-- có hỗ trợ giải mã hay không
-- với TripleDES thì đầu ra gồm những gì
+- **Ciphertext**: Chuỗi hex in hoa (ví dụ: "85E813540F0AB405")
+- **Round keys**: Có thể in round keys bằng cách truyền tham số verbose=true
+- **Hỗ trợ giải mã**: Có hỗ trợ decrypt với cùng key
+- **TripleDES**: Hiện tại sử dụng DES tiêu chuẩn (1 key 8 bytes)
 
 ## 5. Padding đang dùng
 
-TODO_STUDENT: Giải thích cơ chế padding em dùng.
+Chương trình sử dụng **Zero Padding**:
 
-Gợi ý:
-- nếu plaintext dài hơn 64 bit thì chia block như thế nào
-- nếu thiếu bit thì pad bằng `0` ra sao
-- hạn chế của zero padding là gì
-- vì sao cách này chỉ phù hợp cho bài học nhập môn, không phải thiết kế an toàn hoàn chỉnh trong thực tế
+- **Cơ chế**: Nếu plaintext không chia hết cho 64 bits (8 bytes), thêm các bit '0' vào cuối cho đến khi đủ 64 bits
+- **Multi-block**: Plaintext được chia thành các block 64-bit, mỗi block được mã hóa độc lập
+- **Hạn chế của Zero Padding**:
+  - Không thể phân biệt giữa dữ liệu thực và padding khi plaintext kết thúc bằng null bytes
+  - Ví dụ: "ABC\x00\x00\x00\x00" và "ABC" sau padding đều thành "ABC\x00\x00\x00\x00"
+  - Chỉ phù hợp cho mục đích học tập, không an toàn trong thực tế
+- **Trong thực tế**: Nên dùng PKCS#7 padding hoặc các chuẩn padding khác
 
 ## 6. Tests bắt buộc
 
@@ -102,9 +120,12 @@ Sinh viên phải tự hoàn thiện test và bổ sung minh chứng chạy.
 Thư mục `logs/` dùng để nộp minh chứng, ví dụ:
 - ảnh chụp màn hình khi chạy chương trình
 - output của test
+![alt text](image.png)
+![alt text](image-1.png)
 - log thử đúng / sai key / tamper
 - log cho mã hóa nhiều block
-
+![alt text](image-2.png)
+![alt text](image-3.png)
 ## 8. Ethics & Safe use
 
 - Chỉ chạy và kiểm thử trên dữ liệu học tập hoặc dữ liệu giả lập.

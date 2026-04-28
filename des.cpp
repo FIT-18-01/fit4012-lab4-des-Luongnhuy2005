@@ -2,9 +2,10 @@
 #include <string>
 #include <bitset>
 #include <vector>
+#include <sstream>
 using namespace std;
 
-// Helper function: Covert decimal to 4-bit binary string
+// Helper function: Convert decimal to 4-bit binary string
 string convert_decimal_to_binary(int decimal) {
     return bitset<4>(decimal).to_string();
 }
@@ -18,7 +19,7 @@ int convert_binary_to_decimal(const string& binary) {
 string Xor(const string& a, const string& b) {
     string result = "";
     for (size_t i = 0; i < b.size(); i++) {
-        result += (a[i] != b[i]) ? '1': '0';
+        result += (a[i] != b[i]) ? '1' : '0';
     }
     return result;
 }
@@ -104,7 +105,7 @@ private:
 public:
     KeyGenerator(const string& input_key) : key(input_key) {}
 
-    void generateRoundKeys() {
+    void generateRoundKeys(bool verbose = false) {
         roundKeys.clear();
 
         // 1. Apply PC1 permutation
@@ -139,7 +140,9 @@ public:
             roundKeys.push_back(roundKey);
 
             // Optional: print key
-            cout << "Key " << i + 1 << ": " << roundKey << endl;
+            if (verbose) {
+                cout << "Key " << i + 1 << ": " << roundKey << endl;
+            }
         }
     }
 
@@ -225,7 +228,7 @@ class DES {
         DES(const vector<string>& keys) : round_keys(keys) {}
     
         string encrypt(const string& input) {
-            // Apply initial permutation outside class
+            // Apply initial permutation
             string perm = initial_permutation(input);
     
             // Split into left and right parts
@@ -271,34 +274,336 @@ class DES {
             // Swap final halves
             string combined_text = right + left;
     
-            // Apply inverse initial permutation outside class
+            // Apply inverse initial permutation
             string ciphertext = inverse_initial_permutation(combined_text);
     
             return ciphertext;
         }
+
+        // Decrypt function - uses round keys in reverse order
+        string decrypt(const string& input) {
+            // Apply initial permutation
+            string perm = initial_permutation(input);
+    
+            // Split into left and right parts
+            string left = perm.substr(0, 32);
+            string right = perm.substr(32, 32);
+    
+            // 16 Feistel rounds (using round keys in reverse order)
+            for (int i = 0; i < 16; i++) {
+                // Expand right half to 48 bits
+                string right_expanded = "";
+                for (int j = 0; j < 48; j++) {
+                    right_expanded += right[expansion_table[j] - 1];
+                }
+    
+                // XOR with round key (in reverse order for decryption)
+                string xored = Xor(round_keys[15 - i], right_expanded);
+    
+                // S-box substitution
+                string res = "";
+                for (int j = 0; j < 8; j++) {
+                    string row1 = xored.substr(j * 6, 1) + xored.substr(j * 6 + 5, 1);
+                    int row = convert_binary_to_decimal(row1);
+    
+                    string col1 = xored.substr(j * 6 + 1, 4);
+                    int col = convert_binary_to_decimal(col1);
+    
+                    int val = substition_boxes[j][row][col];
+                    res += convert_decimal_to_binary(val);
+                }
+    
+                // Permutation after S-box
+                string perm2 = "";
+                for (int j = 0; j < 32; j++) {
+                    perm2 += res[permutation_tab[j] - 1];
+                }
+    
+                // XOR permuted result with left, then swap
+                string new_right = Xor(perm2, left);
+                left = right;
+                right = new_right;
+            }
+    
+            // Swap final halves
+            string combined_text = right + left;
+    
+            // Apply inverse initial permutation
+            string plaintext = inverse_initial_permutation(combined_text);
+    
+            return plaintext;
+        }
 };
+
+// Convert hex string to binary string
+string hex_to_binary(const string& hex) {
+    string binary = "";
+    for (char c : hex) {
+        int val;
+        if (c >= '0' && c <= '9') val = c - '0';
+        else if (c >= 'A' && c <= 'F') val = c - 'A' + 10;
+        else if (c >= 'a' && c <= 'f') val = c - 'a' + 10;
+        else continue;
+        binary += bitset<4>(val).to_string();
+    }
+    return binary;
+}
+
+// Convert binary string to hex string
+string binary_to_hex(const string& binary) {
+    string hex = "";
+    for (size_t i = 0; i < binary.size(); i += 4) {
+        string nibble = binary.substr(i, 4);
+        int val = stoi(nibble, nullptr, 2);
+        hex += "0123456789ABCDEF"[val];
+    }
+    return hex;
+}
+
+// Convert string to binary (ASCII)
+string string_to_binary(const string& str) {
+    string binary = "";
+    for (char c : str) {
+        binary += bitset<8>(c).to_string();
+    }
+    return binary;
+}
+
+// Convert binary to string (ASCII)
+string binary_to_string(const string& binary) {
+    string str = "";
+    for (size_t i = 0; i < binary.size(); i += 8) {
+        string byte = binary.substr(i, 8);
+        char c = static_cast<char>(stoi(byte, nullptr, 2));
+        str += c;
+    }
+    return str;
+}
+
+// Zero padding - pad to multiple of 64 bits (8 bytes)
+string zero_pad(const string& binary) {
+    int remainder = binary.size() % 64;
+    if (remainder == 0) return binary;
+    int padding_needed = 64 - remainder;
+    return binary + string(padding_needed, '0');
+}
+
+// Remove zero padding
+string zero_unpad(const string& binary) {
+    // Find the last '1' bit to determine actual data length
+    int last_one = -1;
+    for (int i = binary.size() - 1; i >= 0; i--) {
+        if (binary[i] == '1') {
+            last_one = i;
+            break;
+        }
+    }
     
-// Main function
-int main() {
-    // Example plaintext (64 bits)
-    string plaintext = "0001001000110100010101100111100010011010101111001101111011110001";
+    if (last_one == -1) {
+        return binary;
+    }
     
-    // Example key (64 bits)
-    string key = "0001001100110100010101110111100110011011101111001101111111110001";
+    // Calculate actual data length (round up to nearest byte)
+    int byte_pos = last_one / 8;
+    return binary.substr(0, (byte_pos + 1) * 8);
+}
+
+// Process multiple blocks - encryption
+string encrypt_multi_block(const string& plaintext, const string& key_str, bool verbose = false) {
+    // Convert key to binary
+    string key_binary;
+    if (key_str.size() == 8) {
+        key_binary = string_to_binary(key_str);
+    } else if (key_str.size() == 16) {
+        // TripleDES: use first 8 bytes for key generation
+        key_binary = string_to_binary(key_str.substr(0, 8));
+    } else if (key_str.size() == 64) {
+        key_binary = key_str;
+    } else {
+        // Pad or truncate to 8 bytes
+        string key_padded = key_str;
+        while (key_padded.size() < 8) key_padded += '0';
+        key_binary = string_to_binary(key_padded.substr(0, 8));
+    }
     
     // Generate round keys
-    KeyGenerator keygen(key);
-    keygen.generateRoundKeys(); 
-    
+    KeyGenerator keygen(key_binary);
+    keygen.generateRoundKeys(verbose);
     vector<string> roundKeys = keygen.getRoundKeys();
     
     // Create DES object
     DES des(roundKeys);
     
-    // Encrypt
-    string ciphertext = des.encrypt(plaintext);
+    // Convert plaintext to binary
+    string plaintext_binary = string_to_binary(plaintext);
     
-    cout << "Ciphertext: " << ciphertext << endl;
+    // Apply zero padding
+    string padded_plaintext = zero_pad(plaintext_binary);
+    
+    // Encrypt each block
+    string ciphertext_binary = "";
+    for (size_t i = 0; i < padded_plaintext.size(); i += 64) {
+        string block = padded_plaintext.substr(i, 64);
+        string encrypted_block = des.encrypt(block);
+        ciphertext_binary += encrypted_block;
+    }
+    
+    return binary_to_hex(ciphertext_binary);
+}
+
+// Process multiple blocks - decryption
+string decrypt_multi_block(const string& ciphertext_hex, const string& key_str, bool verbose = false) {
+    // Convert key to binary
+    string key_binary;
+    if (key_str.size() == 8) {
+        key_binary = string_to_binary(key_str);
+    } else if (key_str.size() == 16) {
+        // TripleDES: use first 8 bytes for key generation
+        key_binary = string_to_binary(key_str.substr(0, 8));
+    } else if (key_str.size() == 64) {
+        key_binary = key_str;
+    } else {
+        // Pad or truncate to 8 bytes
+        string key_padded = key_str;
+        while (key_padded.size() < 8) key_padded += '0';
+        key_binary = string_to_binary(key_padded.substr(0, 8));
+    }
+    
+    // Generate round keys
+    KeyGenerator keygen(key_binary);
+    keygen.generateRoundKeys(verbose);
+    vector<string> roundKeys = keygen.getRoundKeys();
+    
+    // Create DES object
+    DES des(roundKeys);
+    
+    // Convert ciphertext from hex to binary
+    string ciphertext_binary = hex_to_binary(ciphertext_hex);
+    
+    // Decrypt each block
+    string plaintext_binary = "";
+    for (size_t i = 0; i < ciphertext_binary.size(); i += 64) {
+        string block = ciphertext_binary.substr(i, 64);
+        string decrypted_block = des.decrypt(block);
+        plaintext_binary += decrypted_block;
+    }
+    
+    // Remove zero padding
+    string unpadded_plaintext = zero_unpad(plaintext_binary);
+    
+    return binary_to_string(unpadded_plaintext);
+}
+
+// Print usage
+void print_usage() {
+    cout << "Usage: des <mode> <input> <key>" << endl;
+    cout << "Modes:" << endl;
+    cout << "  encrypt <plaintext> <key>   - Encrypt plaintext" << endl;
+    cout << "  decrypt <ciphertext> <key>  - Decrypt ciphertext (hex)" << endl;
+    cout << endl;
+    cout << "Examples:" << endl;
+    cout << "  des encrypt \"HelloWorld\" \"12345678\"" << endl;
+    cout << "  des decrypt \"85E813540F0AB405\" \"12345678\"" << endl;
+}
+
+int main(int argc, char* argv[]) {
+    // Check if we have command line arguments
+    if (argc >= 2 && string(argv[1]) == "encrypt") {
+        if (argc < 4) {
+            cout << "Usage: des encrypt <plaintext> <key>" << endl;
+            return 1;
+        }
+        string plaintext = argv[2];
+        string key = argv[3];
+        
+        string ciphertext = encrypt_multi_block(plaintext, key, false);
+        cout << ciphertext << endl;
+        return 0;
+    }
+    else if (argc >= 2 && string(argv[1]) == "decrypt") {
+        if (argc < 4) {
+            cout << "Usage: des decrypt <ciphertext> <key>" << endl;
+            return 1;
+        }
+        string ciphertext = argv[2];
+        string key = argv[3];
+        
+        string plaintext = decrypt_multi_block(ciphertext, key, false);
+        cout << plaintext << endl;
+        return 0;
+    }
+    else if (argc >= 3) {
+        // Backward compatibility: treat first arg as plaintext, second as key
+        string plaintext = argv[1];
+        string key = argv[2];
+        
+        string ciphertext = encrypt_multi_block(plaintext, key, false);
+        cout << ciphertext << endl;
+        return 0;
+    }
+    
+    // Check if there's input from stdin (for CI)
+    string mode, input, key;
+    
+    // Try to read from stdin
+    if (!getline(cin, mode)) {
+        print_usage();
+        return 1;
+    }
+    
+    // Check if mode is a number (1-4) for CI
+    if (mode == "1" || mode == "2" || mode == "3" || mode == "4") {
+        if (!getline(cin, input)) {
+            cout << "Error: Missing input" << endl;
+            return 1;
+        }
+        if (!getline(cin, key)) {
+            cout << "Error: Missing key" << endl;
+            return 1;
+        }
+        
+        int mode_num = stoi(mode);
+        if (mode_num == 1) {
+            // DES encrypt
+            string ciphertext = encrypt_multi_block(input, key, false);
+            cout << ciphertext << endl;
+        } else if (mode_num == 2) {
+            // DES decrypt
+            string plaintext = decrypt_multi_block(input, key, false);
+            cout << plaintext << endl;
+        } else if (mode_num == 3) {
+            // TripleDES encrypt (currently same as DES)
+            string ciphertext = encrypt_multi_block(input, key, false);
+            cout << ciphertext << endl;
+        } else if (mode_num == 4) {
+            // TripleDES decrypt (currently same as DES)
+            string plaintext = decrypt_multi_block(input, key, false);
+            cout << plaintext << endl;
+        }
+        return 0;
+    }
+    
+    // Interactive mode
+    cout << "=== DES Encryption/Decryption Tool ===" << endl;
+    cout << "Enter mode (encrypt/decrypt): ";
+    getline(cin, mode);
+    
+    cout << "Enter input: ";
+    getline(cin, input);
+    
+    cout << "Enter key (8 characters): ";
+    getline(cin, key);
+    
+    if (mode == "encrypt" || mode == "1") {
+        string ciphertext = encrypt_multi_block(input, key, false);
+        cout << "Ciphertext (hex): " << ciphertext << endl;
+    } else if (mode == "decrypt" || mode == "2") {
+        string plaintext = decrypt_multi_block(input, key, false);
+        cout << "Plaintext: " << plaintext << endl;
+    } else {
+        cout << "Invalid mode!" << endl;
+        return 1;
+    }
     
     return 0;
 }
