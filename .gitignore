@@ -1,11 +1,11 @@
-# Build outputs
+# File thực thi
+*.exe
 des
-build/
-*.o
-*.out
 
-# IDE files
+# File object
+*.o
+*.obj
+
+# File tạm
+*.out
 .vscode/
-.idea/
-*.swp
-.DS_Store
