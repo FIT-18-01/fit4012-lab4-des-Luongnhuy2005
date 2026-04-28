@@ -1,9 +1,9 @@
 # #!/usr/bin/env bash
-# # TODO_STUDENT: Hoàn thiện test cho trường hợp multi-block và padding.
+## ...existing code...
 # # Gợi ý: kiểm tra plaintext dài hơn 64 bit, chia block đúng và zero padding đúng.
 # set -euo pipefail
 
-# echo "TODO_STUDENT: implement multi-block padding test"
+## ...existing code...
 # exit 0
 
 #!/usr/bin/env bash

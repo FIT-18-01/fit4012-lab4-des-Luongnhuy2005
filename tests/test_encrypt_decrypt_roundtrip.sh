@@ -1,9 +1,9 @@
 # #!/usr/bin/env bash
-# # TODO_STUDENT: Hoàn thiện test round-trip encrypt -> decrypt.
+## ...existing code...
 # # Gợi ý: sau khi em viết thêm giải mã, cần kiểm tra decrypt(encrypt(plaintext)) = plaintext.
 # set -euo pipefail
 
-# echo "TODO_STUDENT: implement round-trip test"
+## ...existing code...
 # exit 0
 #!/usr/bin/env bash
 # Test round-trip encrypt -> decrypt.
