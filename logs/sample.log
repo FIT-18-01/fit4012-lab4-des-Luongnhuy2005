@@ -1,0 +1,4 @@
+Log kiểm thử DES:
+- Ngày 28/04/2026: Đã chạy thành công các test encrypt/decrypt, multi-block, padding.
+- Không phát hiện lỗi trong quá trình kiểm thử tự động.
+- Kết quả mã hóa/giải mã khớp với vector mẫu chuẩn.
