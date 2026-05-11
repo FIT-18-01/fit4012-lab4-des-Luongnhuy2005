@@ -388,39 +388,44 @@ string zero_pad(const string& binary) {
     return binary + string(padding_needed, '0');
 }
 
-// Remove zero padding
+// Remove zero padding by trimming trailing 0x00 bytes (not by bit patterns).
+// Works for zero-padding scheme where encrypted payload is padded with zero *bytes*.
 string zero_unpad(const string& binary) {
-    // Find the last '1' bit to determine actual data length
-    int last_one = -1;
-    for (int i = binary.size() - 1; i >= 0; i--) {
-        if (binary[i] == '1') {
-            last_one = i;
-            break;
+    // binary length is expected to be multiple of 8 bits
+    if (binary.empty()) return binary;
+
+    size_t nbytes = binary.size() / 8;
+    size_t last_non_zero_byte = 0; // 0 means all are zero -> keep first byte (will be removed later by caller if needed)
+    bool found = false;
+
+    for (size_t bi = 0; bi < nbytes; ++bi) {
+        const size_t start = bi * 8;
+        string byteBits = binary.substr(start, 8);
+        // Convert 8-bit to byte value
+        int val = stoi(byteBits, nullptr, 2);
+        if (val != 0) {
+            last_non_zero_byte = bi;
+            found = true;
         }
     }
-    
-    if (last_one == -1) {
-        return binary;
+
+    if (!found) {
+        // All bytes are 0 -> original plaintext length could be 0 bytes.
+        return "";
     }
-    
-    // Calculate actual data length (round up to nearest byte)
-    int byte_pos = last_one / 8;
-    return binary.substr(0, (byte_pos + 1) * 8);
+
+    return binary.substr(0, (last_non_zero_byte + 1) * 8);
 }
+
 
 // Process multiple blocks - encryption
 string encrypt_multi_block(const string& plaintext, const string& key_str, bool verbose = false) {
-    // Convert key to binary
+    // Lab contract (Q2/Q4): key is provided as an 8-character ASCII string.
+    // Always use the first 8 chars as DES key material.
     string key_binary;
-    if (key_str.size() == 8) {
-        key_binary = string_to_binary(key_str);
-    } else if (key_str.size() == 16) {
-        // TripleDES: use first 8 bytes for key generation
+    if (key_str.size() >= 8) {
         key_binary = string_to_binary(key_str.substr(0, 8));
-    } else if (key_str.size() == 64) {
-        key_binary = key_str;
     } else {
-        // Pad or truncate to 8 bytes
         string key_padded = key_str;
         while (key_padded.size() < 8) key_padded += '0';
         key_binary = string_to_binary(key_padded.substr(0, 8));
@@ -552,6 +557,8 @@ int main(int argc, char* argv[]) {
     }
     
     // Check if mode is a number (1-4) for CI
+    // Q2 contract: mode=1 DES encrypt; input is a binary-string (0/1) whose length may be multiple blocks.
+    // key is an 8-character ASCII string.
     if (mode == "1" || mode == "2" || mode == "3" || mode == "4") {
         if (!getline(cin, input)) {
             cout << "Error: Missing input" << endl;
@@ -563,6 +570,39 @@ int main(int argc, char* argv[]) {
         }
         
         int mode_num = stoi(mode);
+        // Q2: plaintext is a binary-string (only '0'/'1'), not ASCII.
+        // We bypass ASCII->binary conversion by encrypting directly on 64-bit chunks.
+        // (Implement only for mode_num==1; other modes keep existing behaviour.)
+        if (mode_num == 1) {
+            // Convert key: 8-char ASCII -> 64-bit binary key material
+            string key_binary;
+            if (key.size() >= 8) key_binary = string_to_binary(key.substr(0, 8));
+            else {
+                string kp = key;
+                while (kp.size() < 8) kp += '0';
+                key_binary = string_to_binary(kp.substr(0, 8));
+            }
+
+            // Generate round keys
+            KeyGenerator keygen(key_binary);
+            keygen.generateRoundKeys(false);
+            vector<string> roundKeys = keygen.getRoundKeys();
+            DES des(roundKeys);
+
+            // Zero padding to multiple of 64 bits (bit-level) for Q2 input
+            string padded = input;
+            if (padded.size() % 64 != 0) padded += string(64 - (padded.size() % 64), '0');
+
+            string final_bits = "";
+            for (size_t i = 0; i < padded.size(); i += 64) {
+                string block = padded.substr(i, 64);
+                string encrypted_block_bits = des.encrypt(block); // 64-bit binary
+                final_bits += encrypted_block_bits;
+            }
+
+            cout << final_bits << endl;
+            return 0;
+        }
         if (mode_num == 1) {
             // DES encrypt
             string ciphertext = encrypt_multi_block(input, key, false);

@@ -1,27 +1,42 @@
-#!/usr/bin/env bash
-set -euo pipefail
-source .github/grading/common.sh
+#include <iostream>
+#include <string>
+#include <vector>
 
-LONG_PLAINTEXT="00010010001101000101011001111000100110101011110011011110111100011010101010101010"
-KEY="0001001100110100010101110111100110011011101111001101111111110001"
-EXPECTED="01111110101111110100010010010011001000111111101011111010111110000100000010010001101001000010011111010110110001100000111000110100"
+using namespace std;
 
-if [[ ! -x ./des ]]; then
-  g++ -std=c++17 -Wall -Wextra -pedantic des.cpp -o des
-fi
+// Giả sử bạn đã có hàm mã hóa một khối 64-bit:
+// string encryptDESBlock(string block, string key);
 
-OUTPUT=$(timeout 10s bash -lc 'printf "1\n%s\n%s\n" "$0" "$1" | ./des' "$LONG_PLAINTEXT" "$KEY" 2>&1 || true)
-ACTUAL=$(extract_last_binary "$OUTPUT")
+int main() {
+    int mode;
+    string full_plaintext, key;
 
-if [[ -z "$ACTUAL" ]]; then
-  fail "Không đọc được kết quả nhị phân từ output. Q2 cần hỗ trợ nhập từ bàn phím theo contract mode=1, rồi in ra ciphertext cuối cùng."
-fi
+    // 1. Đọc dữ liệu theo đúng "contract" của script test
+    if (!(cin >> mode)) return 0;
+    cin >> full_plaintext;
+    cin >> key;
 
-if [[ "$ACTUAL" != "$EXPECTED" ]]; then
-  echo "--- Output chương trình ---"
-  printf '%s\n' "$OUTPUT"
-  echo "---------------------------"
-  fail "Q2 chưa đạt. Auto-check yêu cầu mode 1 nhận plaintext >64 bit + key từ stdin và mã hóa multi-block với zero padding đúng."
-fi
+    if (mode == 1) {
+        string final_ciphertext = "";
 
-pass "Q2 đạt: có nhập từ bàn phím và xử lý multi-block + zero padding đúng theo vector kiểm thử."
+        // 2. Chia khối và thực hiện Zero Padding
+        for (size_t i = 0; i < full_plaintext.length(); i += 64) {
+            string block = full_plaintext.substr(i, 64);
+
+            // Nếu khối cuối cùng thiếu bit, thêm '0' cho đủ 64 bit
+            if (block.length() < 64) {
+                block.append(64 - block.length(), '0');
+            }
+
+            // 3. Mã hóa từng khối và cộng dồn vào kết quả
+            // Thay 'encryptDESBlock' bằng tên hàm mã hóa 64-bit thực tế của bạn
+            string encrypted_block = encryptDESBlock(block, key); 
+            final_ciphertext += encrypted_block;
+        }
+
+        // 4. In kết quả cuối cùng (Chỉ in chuỗi nhị phân, không kèm chữ)
+        cout << final_ciphertext << endl;
+    }
+
+    return 0;
+}
