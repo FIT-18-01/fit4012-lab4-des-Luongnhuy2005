@@ -8,5 +8,5 @@ Ví dụ file có thể đặt ở đây:
 - `wrong-key-case.txt`
 - `multiblock-output.txt`
 - ảnh chụp màn hình hoặc log test
-
+![alt text](image4.png)
 Lưu ý: file này chỉ là hướng dẫn, **không được tính là minh chứng nộp bài**.
